@@ -16,8 +16,8 @@ double currentAngle = 0.0;
 
 
 void setup() {
-    Serial.begin(9600);  
-  
+    Serial.begin(9600);
+    Wire.begin();  
     imu.setGyroRange(MPU6050_RANGE_5_DEG);
 
     imu.setAccelerometerRange(MPU6050_RANGE_1G);
