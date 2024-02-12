@@ -6,70 +6,85 @@
 // Servo Motor - Needs to be initialized, turn 180 deg clockwise once at start to dump reactants, wait 1 sec to finish dumping, turn back 180 deg counter-clockwise to return to upright position, set speed to 100% for now, tune later.
 // MicroSD Card - Store all variable data to MicroSD Card on microcontroller, allow for each run to be saved under a different filename (potentially in CSV format) so we can keep track of everything.
 
-#include <OneWire.h>
-#include <DallasTemperature.h>
-#define ONE_WIRE_BUS A1 // pin for the DS18B20 data line
-OneWire oneWire(ONE_WIRE_BUS); // create a OneWire instance to communicate with the senso
-DallasTemperature sensors(&oneWire); // pass oneWire reference to Dallas Temperature sensor
+#include <Wire.h>
+#include <I2Cdev.h>
+#include <MPU6050.h>
 
-// Define the PWM pins for the stir bar motor
-const int stirPin1 = 5;
-const int stirPin2 = 6;
+MPU6050 mpu;
 
-// variable to store temperature
-float temperatureC;
-// KALMAN FILTER variables
-float x_k; // State estimate: current best estimate of true temp
-float p_k; // Error covariance: reps the uncertainity in the state estimate
-// Process noise and measurement noise
-float q; // Process noise covariance
-float r; // Measurement noise covariance
+// variables
+float initialAngle = 0.0;
+float angle = 0.0;
+float bias = 0.0;
+float P[2][2] = {{1, 0}, {0, 1}};
+float Q_angle = 0.001; // process noise covariance for the accelerometer
+float R_measure = 0.1; // measurement noise covariance
 
 void setup() {
-  Serial.begin(9600);  // start serial communication (adjust baud rate as needed)
-  sensors.begin();   // initialize the DS18B20 sensor
+  Serial.begin(115200);
 
-  // Initialize Kalman filter parameters
-  x_k = 0.0; // Initial state estimate
-  p_k = 1.0; // Initial error covariance
-  q = 0.01;  // Process noise covariance 
-  r = 0.1;   // Measurement noise covariance 
-  
-  // Initialize the motor pins as outputs
-  pinMode(stirPin1, OUTPUT);
-  pinMode(stirPin2, OUTPUT);
+  // initialize MPU6050
+  Wire.begin();
+  mpu.initialize();
 
-  // Set the initial speed to 80%
-  analogWrite(stirPin1, 204); // 80% of 255
-  digitalWrite(stirPin2, LOW); //for fast decay
+  // verify connection
+  if (!mpu.testConnection()) {
+    Serial.println("MPU6050 connection failed!");
+    while (1);
+  }
+
+  delay(1000); // let the sensor stabilize
+  initialAngle = calculateZAxisAngle();
+  Serial.print("Initial Angle: ");
+  Serial.println(initialAngle);
 }
 
 void loop() {
-  sensors.requestTemperatures();   // request temperature from all devices on the bus
-  temperatureC = sensors.getTempCByIndex(0); // get temperature in Celsius
+  // Calculate the Z-axis angle
+  float rawAngle = calculateZAxisAngle();
 
+  // Kalman filter for noise reduction
+  KalmanFilter(rawAngle);
 
-  // Kalman filter prediction
-  float x_k_minus = x_k;      // Predicted next state estimate
-  float p_k_minus = p_k + q;  // Predicted error covariance for the next state
+  // Print the filtered angle to the serial monitor
+  Serial.print("Filtered Angle: ");
+  Serial.println(angle);
 
-  // Kalman filter update
+  delay(1000); // Adjust the delay based on your required polling frequency
+}
 
-  /* Kalman gain: calculated based on the predicted error covariance 
-  and the measurement noise covariance,,, used to update the 
-  state estimate (x_k) and error covariance (p_k) */ 
-  float k = p_k_minus / (p_k_minus + r); // kalman gain
-  //comparison with actual temp reading 
-  x_k = x_k_minus + k * (temperatureC - x_k_minus); // Updated state estimate
-  p_k = (1 - k) * p_k_minus; // Updated error covariance
+float calculateZAxisAngle() {
+  int16_t ax, ay, az, gx, gy, gz;
+  mpu.getMotion6(&ax, &ay, &az, &gx, &gy, &gz);
 
-  
-  // Print the filtered temperature
-  Serial.print("Filtered Temperature: ");
-  Serial.println(x_k);
-  // Print raw temperature to Serial monitor
-  Serial.print("Raw Temperature: ");
-  Serial.println(temperatureC);
+  float radians = atan2(ay, ax);
+  return radians * (180.0 / M_PI);
+}
 
-  delay(1000); // Add delay before the next reading (change as needed)
+void KalmanFilter(float newAngle) {
+  float dt = 1.0; // time step, adjust as needed
+
+  // predict
+  angle += (gy - bias) * dt;
+
+  P[0][0] += dt * (dt*P[1][1] - P[0][1] - P[1][0] + Q_angle);
+  P[0][1] -= dt * P[1][1];
+  P[1][0] -= dt * P[1][1];
+  P[1][1] += Q_angle * dt;
+
+  // update
+  float y = newAngle - angle;
+  float S = P[0][0] + R_measure;
+  float K[2];
+
+  K[0] = P[0][0] / S;
+  K[1] = P[1][0] / S;
+
+  angle += K[0] * y;
+  bias += K[1] * y;
+
+  P[0][0] -= K[0] * P[0][0];
+  P[0][1] -= K[0] * P[0][1];
+  P[1][0] -= K[1] * P[0][0];
+  P[1][1] -= K[1] * P[0][1];
 }
