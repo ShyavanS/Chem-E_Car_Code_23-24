@@ -10,6 +10,7 @@
 #include <SPI.h>
 #include <Wire.h>
 #include <MPU6050.h>
+#include <math.h>
 
 // Define drive motor pins
 #define left_pwm1 9
@@ -227,7 +228,7 @@ void setup() // Setup (executes once)
   Wire.begin();
   imu.initialize(); 
 
-  // Servo acctuation goes here
+  // Servo actuation goes here
 
   // Activate PID
   carPID.SetMode(AUTOMATIC);
