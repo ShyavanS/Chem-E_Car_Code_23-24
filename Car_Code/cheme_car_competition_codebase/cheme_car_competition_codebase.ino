@@ -12,7 +12,7 @@
 #define RAD_TO_DEG 180.0 / PI
 
 Adafruit_MPU6050 imu;
-double currentAngle = 0.0;
+double initialAngle = 0.0;
 double Q_angle = 0.001; 
 double Q_gyro = 0.003; 
 double R_measure = 0.03; 
@@ -40,7 +40,7 @@ void loop() {
     double rawAngle = atan2(-accelerometerEvent.acceleration.y, -accelerometerEvent.acceleration.x) * RAD_TO_DEG;
 
     double dt = 0.1;
-    KalmanFilter(rawAngle, gyroscopeEvent.gyro.z, dt);  
+    filterAngle(rawAngle, gyroscopeEvent.gyro.z, dt);  
 
     if (currentAngle == 0.0) {
       currentAngle = rawAngle;
@@ -50,7 +50,7 @@ void loop() {
     delay(100);
 }
 
-void KalmanFilter(double newAngle, double newRate, double dt) {
+void filterAngle(double newAngle, double newRate, double dt) {
     // Prediction update
     double rate = newRate - bias;
     angle += dt * rate;
