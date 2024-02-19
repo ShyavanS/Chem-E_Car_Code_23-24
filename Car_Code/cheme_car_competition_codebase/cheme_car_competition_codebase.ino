@@ -5,6 +5,7 @@
 
 // Included libraries
 #include <OneWire.h>
+#include <Servo.h>
 #include <DallasTemperature.h>
 
 // Define drive motor pins
@@ -97,6 +98,21 @@ void setup() // Setup (executes once)
   initTemp = sensors.getTempCByIndex(0); // get temperature in Celsius
 
   // Servo acctuation goes here
+  int pos = 0;    //position
+  int speedPercentage = 1; // Speed value to be adjusted
+  Reagent_Servo_Motor.attach(6);  // not sure which pin it will attach to on the board yet, will have to confirm
+   // Speed percentage range and rotation range combined with speed percentage 
+  int speed = map(speedPercentage, 0, 100, 0, 180);
+
+//test
+
+  // Turns 180 degrees to dump in reagent
+  Reagent_Servo_Motor.write(speed);
+  delay(100);  // A delay is included to make sure all reagent dumps out properly, I believe this is in milliseconds
+
+  // Returns to Origin
+  Reagent_Servo_Motor.write(0);
+  
 
   // Setting to drive motors output mode
   pinMode(left_pwm1, OUTPUT);
