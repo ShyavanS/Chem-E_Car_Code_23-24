@@ -26,8 +26,8 @@ void setup() {
   sensors.begin();   // initialize the DS18B20 sensor
 
   // Initialize Kalman filter parameters
-x_k = 1.758375; // Initial state estimate (average temperature)
-p_k = 0.2;      // Initial error covariance (a fraction of the sample variance)
+x_k = 20; // Initial temperature
+p_k = 0.1;      // Initial error covariance (a fraction of the sample variance)
 q = 0.01;       // Process noise covariance 
 r = 0.5;        // Measurement noise covariance (set slightly higher than the estimated measurement noise)
 
